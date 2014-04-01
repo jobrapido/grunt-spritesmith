@@ -5,6 +5,7 @@ var _ = require('underscore');
 var templater = require('spritesheet-templates');
 var spritesmith = require('spritesmith');
 var url = require('url2');
+var crypto = require('crypto');
 
 // Define class to contain different extension handlers
 function ExtFormat() {
@@ -47,6 +48,40 @@ cssFormats.add('.css', 'css');
 module.exports = function gruntSpritesmith (grunt) {
   // Create a SpriteMaker function
   function SpriteMaker() {
+    function generateHash(fileData) {
+      return crypto.createHash('md5').update(fileData, 'utf8').digest('hex').substring(0, 16);
+    }
+
+    function bustSpriteCache(filename, spritePath, opts) {
+      var extension  = path.extname(filename);
+      var newFilename = filename;
+
+      if (opts.rename) {
+        if (!grunt.file.exists(filename)) {
+          grunt.log.warn('Static asset "' + filename + '" skipped because it wasn\'t found.');
+          return false;
+        }
+
+        var hash = generateHash(grunt.file.read(filename));
+
+        // Create our new filename
+        newFilename = filename.replace(extension, '') + '_' + hash + extension;
+
+        // Create our new file
+        grunt.file.copy(filename, newFilename);
+
+        // Delete the original file
+        grunt.file.delete(filename);
+        spritePath = spritePath.replace(extension, '') + '_' + hash + extension;
+      } else {
+        spritePath = spritePath + '?' + generateHash(grunt.file.read(filename));
+      }
+      return {
+        spritePath: spritePath,
+        destImg: newFilename
+      };
+    }
+
     // Grab the raw configuration
     var data = this.data;
 
@@ -106,6 +141,20 @@ module.exports = function gruntSpritesmith (grunt) {
       var coordinates = result.coordinates;
       var properties = result.properties;
       var spritePath = data.imgPath || url.relative(destCss, destImg);
+      var cacheBust = data.cacheBust || false;
+      if (cacheBust) {
+        var cacheBustOpts = data.cacheBustOpts || {};
+        cacheBustOpts = {
+          baseDir: destImgDir,
+          encoding: cacheBustOpts.encoding || 'utf8',
+          algorithm: cacheBustOpts.algorithm || 'md5',
+          length: cacheBustOpts.length || 16,
+          rename: cacheBustOpts.rename || false
+        };
+        var cacheBustResult = bustSpriteCache(destImg, spritePath, cacheBustOpts);
+        destImg = cacheBustResult.destImg;
+        spritePath = cacheBustResult.spritePath;
+      }
       var spritesheetInfo = {
         width: properties.width,
         height: properties.height,
