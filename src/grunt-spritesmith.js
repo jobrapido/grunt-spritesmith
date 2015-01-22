@@ -48,8 +48,8 @@ cssFormats.add('.css', 'css');
 module.exports = function gruntSpritesmith (grunt) {
   // Create a SpriteMaker function
   function SpriteMaker() {
-    function generateHash(fileData) {
-      return crypto.createHash('md5').update(fileData, 'utf8').digest('hex').substring(0, 16);
+    function generateHash(fileData, length) {
+      return crypto.createHash('md5').update(fileData, 'utf8').digest('hex').substring(0, length);
     }
 
     function bustSpriteCache(filename, spritePath, opts) {
@@ -62,7 +62,7 @@ module.exports = function gruntSpritesmith (grunt) {
           return false;
         }
 
-        var hash = generateHash(grunt.file.read(filename));
+        var hash = generateHash(grunt.file.read(filename), opts.length);
 
         // Create our new filename
         newFilename = filename.replace(extension, '') + '_' + hash + extension;
@@ -74,7 +74,7 @@ module.exports = function gruntSpritesmith (grunt) {
         grunt.file.delete(filename);
         spritePath = spritePath.replace(extension, '') + '_' + hash + extension;
       } else {
-        spritePath = spritePath + '?' + generateHash(grunt.file.read(filename));
+        spritePath = spritePath + '?' + generateHash(grunt.file.read(filename), opts.length);
       }
       return {
         spritePath: spritePath,
